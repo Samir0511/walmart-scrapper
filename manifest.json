@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Walmart 300-Item Deep Scraper",
+  "version": "1.0",
+  "permissions": [
+    "tabs",
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://*.walmart.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*.walmart.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { width: 250px; font-family: system-ui, sans-serif; padding: 12px; margin: 0; }
+    h3 { margin-top: 0; color: #0071dc; }
+    .btn { width: 100%; padding: 10px; margin-top: 6px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
+    #startBtn { background: #0071dc; color: white; }
+    #downloadBtn { background: #ffc220; color: #333; }
+    #downloadBtn:disabled { background: #e0e0e0; color: #999; cursor: not-allowed; }
+    #status { margin-top: 12px; font-size: 13px; color: #444; line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <h3>Walmart 300 Deep Scraper</h3>
+  <button id="startBtn" class="btn">Start Scraper (Target: 300)</button>
+  <button id="downloadBtn" class="btn" disabled>Download CSV Data</button>
+  <div id="status">Ready. Navigate to a Walmart search page and click Start.</div>
+
+  <script>
+    document.getElementById('startBtn').addEventListener('click', async () => {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab || !tab.url.includes("walmart.com/search")) {
+        document.getElementById('status').innerText = "❌ Please open a live Walmart search results page first!";
+        return;
+      }
+
+      await chrome.storage.local.set({
+        productLinksQueue: [],
+        scrapedProducts: [],
+        currentPage: 1,
+        isScraping: true,
+        targetLimit: 300
+      });
+
+      chrome.runtime.sendMessage({ action: "START_SCRAPING", tabId: tab.id, url: tab.url });
+      document.getElementById('status').innerText = "🔄 Initializing link capture loops...";
+    });
+
+    chrome.runtime.onMessage.addListener((msg) => {
+      if (msg.action === "STATUS_UPDATE") {
+        document.getElementById('status').innerText = msg.text;
+        if (msg.finished) {
+          document.getElementById('downloadBtn').disabled = false;
+        }
+      }
+    });
+
+    document.getElementById('downloadBtn').addEventListener('click', async () => {
+      const { scrapedProducts } = await chrome.storage.local.get('scrapedProducts');
+      if (!scrapedProducts || scrapedProducts.length === 0) return;
+
+      let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+      csvContent += ["Title", "Price", "Description"].join(",") + "\n";
+
+      scrapedProducts.forEach(item => {
+        const cleanTitle = item.title.replace(/"/g, '""');
+        const cleanPrice = item.price.replace(/"/g, '""');
+        const cleanDesc = item.description.replace(/"/g, '""');
+        csvContent += `"${cleanTitle}","${cleanPrice}","${cleanDesc}"\n`;
+      });
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", "walmart_300_products.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    });
+  </script>
+</body>
+</html>
